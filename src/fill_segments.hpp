@@ -10,7 +10,7 @@ class fill_segments
 public:
 	struct segment_t{
 		uint32_t start,finish,id,row;
-		segment_t(uint32_t s=0,uint32_t f=1):start(s),finish(f),id(0),row(0)
+		segment_t(uint32_t s=0,uint32_t f=0):start(s),finish(f),id(0),row(0)
 		{}
 	}; // (start1 <= finish2) && (start2 <= end1)) 
 	
@@ -27,6 +27,7 @@ private:
     
     
 	static void find_segments_in_row(const uint8_t* row_ptr,size_t cols,std::vector<segment_t>& vec,size_t ms);
+    static void find_segments_in_row_vec(const uint8_t* row_ptr,size_t cols,std::vector<segment_t>& vec,size_t ms);
 	void rows_to_segments(const uint8_t* frame,uint32_t ms);
 	uint32_t set_ids();
 	void build_connectivity(uint32_t id);

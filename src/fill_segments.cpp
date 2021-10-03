@@ -1,4 +1,5 @@
 #include "fill_segments.hpp"
+#include "pure_simd.hpp"
 
 static inline bool intersect(const fill_segments::segment_t& a,const fill_segments::segment_t& b)
 {
@@ -9,10 +10,10 @@ void fill_segments::find_segments_in_row(const uint8_t* row_ptr,size_t cols,std:
 {
     for(size_t i=0;i<cols;i++)
     {
-        if(row_ptr[i])
+        if(row_ptr[i]) 
         {
             uint32_t start=i;
-            uint32_t finish=i+1;
+            uint32_t finish=i+1; 
             while(i<cols && row_ptr[i]){
                 finish=++i;
             }
@@ -21,6 +22,50 @@ void fill_segments::find_segments_in_row(const uint8_t* row_ptr,size_t cols,std:
                 vec.emplace_back(start,finish);
             }
         }
+    }
+}
+
+void fill_segments::find_segments_in_row_vec(const uint8_t* row_ptr,size_t cols,std::vector<segment_t>& vec,size_t ms)
+{
+    bool previous=false;
+    segment_t cur_segment;
+    pure_simd::unroll_loop<pure_simd::register_size>(
+        0,cols,[&](auto step,uint32_t col)
+        {
+            constexpr std::size_t vector_size = decltype(step)::value; 
+            using ucvec = pure_simd::vector<uint8_t, vector_size>;
+            ucvec vals=pure_simd::load_from<ucvec>(row_ptr+col);
+            unsigned int numvals=pure_simd::sum(vals,0);
+            if(!previous && numvals==0)
+            {
+                return;
+            }
+            else if(previous && numvals==vector_size)
+            {
+                cur_segment.finish+=numvals;
+                return;
+            }
+            for(int i=0;i<vector_size;i++)
+            {
+                bool current=vals[i];
+                if(current==previous)
+                {
+                    cur_segment.finish+=current;
+                }
+                else if(current)
+                {
+                    cur_segment.start=col;
+                    cur_segment.finish=col+1;
+                }
+                else if(!current)
+                {
+                    vec.push_back(cur_segment);
+                }
+            }
+        }
+    );
+    if((cur_segment.finish-cur_segment.start)!=0) {
+        vec.push_back(cur_segment);
     }
 }
 
