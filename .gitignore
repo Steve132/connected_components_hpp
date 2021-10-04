@@ -10,3 +10,4 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 build/
+connected_components_hpp.kdev4

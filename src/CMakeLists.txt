@@ -6,6 +6,10 @@ add_library(connected_components
 )
 target_include_directories(connected_components PRIVATE deps)
 target_compile_features(connected_components PRIVATE cxx_std_17)
+find_package(OpenMP)
+if(OpenMP_FOUND)
+    target_link_libraries(connected_components PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 if(NOT MSVC)
 target_compile_options(connected_components

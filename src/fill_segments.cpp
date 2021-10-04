@@ -25,45 +25,54 @@ void fill_segments::find_segments_in_row(const uint8_t* row_ptr,size_t cols,std:
     }
 }
 
+template<unsigned int N>
+static inline unsigned int load_mask_omp(const uint8_t* ptr)
+{
+    unsigned int total=0;
+    #pragma omp simd simdlen(N) aligned(ptr:N) reduction(+:total)
+    for(unsigned int i=0;i<N;i++)
+    {
+        total+=ptr[i];
+    }
+    return total;
+}
+
 void fill_segments::find_segments_in_row_vec(const uint8_t* row_ptr,size_t cols,std::vector<segment_t>& vec,size_t ms)
 {
     bool previous=false;
     segment_t cur_segment;
-    pure_simd::unroll_loop<pure_simd::register_size>(
-        0,cols,[&](auto step,uint32_t col)
+    constexpr std::size_t vector_size = 16; //pure_simd::register_size;
+    for(size_t col=0;col<cols;col+=vector_size)
+    {
+        unsigned int num_ones=load_mask_omp<vector_size>(row_ptr+col);
+        if(!previous && num_ones==0)
         {
-            constexpr std::size_t vector_size = decltype(step)::value; 
-            using ucvec = pure_simd::vector<uint8_t, vector_size>;
-            ucvec vals=pure_simd::load_from<ucvec>(row_ptr+col);
-            unsigned int numvals=pure_simd::sum(vals,0);
-            if(!previous && numvals==0)
+            return;
+        }
+        else if(previous && num_ones==vector_size)
+        {
+            cur_segment.finish+=vector_size;
+            return;
+        }
+        for(int i=0;i<vector_size;i++)
+        {
+            bool current=row_ptr[cols+i];
+            if(current==previous)
             {
-                return;
+                cur_segment.finish+=current;
             }
-            else if(previous && numvals==vector_size)
+            else if(current)
             {
-                cur_segment.finish+=numvals;
-                return;
+                cur_segment.start=col;
+                cur_segment.finish=col+1;
             }
-            for(int i=0;i<vector_size;i++)
+            else if(!current)
             {
-                bool current=vals[i];
-                if(current==previous)
-                {
-                    cur_segment.finish+=current;
-                }
-                else if(current)
-                {
-                    cur_segment.start=col;
-                    cur_segment.finish=col+1;
-                }
-                else if(!current)
-                {
-                    vec.push_back(cur_segment);
-                }
+                vec.push_back(cur_segment);
             }
         }
-    );
+    }
+
     if((cur_segment.finish-cur_segment.start)!=0) {
         vec.push_back(cur_segment);
     }
