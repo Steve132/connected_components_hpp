@@ -22,3 +22,5 @@ target_compile_options(connected_components
     $<$<COMPILE_LANGUAGE:C>:$<$<CONFIG:MinSizeRel>:-march=native>>
 )
 endif()
+
+add_executable(test main.cpp)
