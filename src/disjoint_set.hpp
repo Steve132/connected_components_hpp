@@ -4,50 +4,118 @@
 #include<vector>
 #include<algorithm>
 #include<numeric>
+#include<cstdint>
 
-template<class label_uint_t>
+//https://arxiv.org/pdf/1911.06347.pdf
+template<class label_uint_t,class storage_uint_t=label_uint_t>
 class disjoint_set
 {
-private:
-	std::vector<label_uint_t> sizes;
-	std::vector<label_uint_t> parents;
-public:
-	disjoint_set(label_uint_t N=0) {
-		reset(N);
-	}
-	void reset(label_uint_t N){
-		parents.resize(N);
-		sizes.resize(N);
-		std::iota(parents.begin(),parents.end(),0);
-		std::fill(sizes.begin(),sizes.end(),1);
+protected:
+	mutable std::vector<storage_uint_t> parents;
+	storage_uint_t cur_groups;
+
+	static bool prand_cmp(uint32_t ux,uint32_t uy) {
+		ux ^= uy;
+		uint64_t v=ux;
+		v*=3499239749UL;
+
+		return (v >> 32) & 0x1;
 	}
 
-	label_uint_t Find(label_uint_t x) {
-		while(parents[x] != x)
+public:
+	disjoint_set(size_t N=0) {
+		reset(N);
+	}
+	void reset(size_t N){
+		parents.resize(N);
+		cur_groups=(storage_uint_t)N;
+		std::iota(parents.begin(),parents.end(),0);
+	}
+
+	label_uint_t Find(label_uint_t x) const {
+		label_uint_t px;
+
+		while((px=parents[x]) != x)
 		{
-			label_uint_t px=parents[x];
-			parents[x]=parents[px];
+			label_uint_t ppx=parents[px];
+			if(ppx == px) return px;
+			parents[x]=ppx;
 			x=px;
 		}
 		return x;
 	}
+
 	void Union(label_uint_t x,label_uint_t y) {
 		label_uint_t xroot=Find(x);
 		label_uint_t yroot=Find(y);
-		
+
 		if(xroot==yroot) return;
-		label_uint_t xsz=sizes[xroot];
-		label_uint_t ysz=sizes[yroot];
-		if(xsz < ysz){
+
+		if(prand_cmp(xroot,yroot)){
 			std::swap(xroot,yroot);
 		}
-		sizes[xroot]=xsz+ysz;
 		parents[yroot]=xroot;
+		cur_groups--;
 	}
-	label_uint_t size() const {
-		if(parents.size()==0) return 0;
-		return (*std::max_element(parents.cbegin(),parents.cend()))+1;
+	size_t num_groups() const {
+		return (size_t)cur_groups;
 	}
 };
 
+
+#if __cplusplus >= 202002L
+// C++20 (and later) code
+
+#include<atomic>
+
+template<class label_uint_t>
+class parallel_disjoint_set: private disjoint_set<label_uint_t>
+{
+public:
+    using dstype=disjoint_set<label_uint_t>;
+	parallel_disjoint_set(size_t N=0) {
+		reset(N);
+	}
+	void reset(size_t N){
+		dstype::reset(N);
+		(std::atomic_ref<size_t>(dstype::cur_groups))=N;
+	}
+	size_t num_groups() const {
+		return std::atomic_ref<size_t>(dstype::cur_groups);
+	}
+	label_uint_t Find(label_uint_t x) const {
+		label_uint_t px;
+
+		while((px=std::atomic_ref<label_uint_t>(dstype::parents[x])) != x)
+		{
+			label_uint_t ppx=std::atomic_ref<label_uint_t>(disjoint_set<label_uint_t>::parents[px]);
+			if(ppx == px) return px;
+			dstype::parents[x]=ppx; //ON PURPOSE.  This writeback isn't needed for correctness so it can be non-atomic
+			x=px;
+		}
+		return x;
+	}
+
+	void Union(label_uint_t x,label_uint_t y) {
+		label_uint_t xroot=Find(x);
+		label_uint_t yroot=Find(y);
+
+		if(xroot==yroot) return;
+
+		if(prand_cmp(xroot,yroot)){
+			std::swap(xroot,yroot);
+		}
+		(std::atomic_ref<label_uint_t>(dstype::parents[yroot]))=xroot;
+		(std::atomic_ref<label_uint_t>(dstype::cur_groups))--;
+	}
+};
+
+#else
+
+#include<atomic>
+
+template<class label_uint_t>
+using parallel_disjoint_set=disjoint_set<label_uint_t,std::atomic<label_uint_t>>;
+
+#endif
 #endif
