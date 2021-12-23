@@ -45,84 +45,6 @@ public:
 		return x;
 	}
 
-	label_uint_t Union(label_uint_t x,label_uint_t y) {
-		label_uint_t xroot=Find(x);
-		label_uint_t yroot=Find(y);
-
-		if(xroot==yroot) return;
-
-		if(prand_cmp(xroot,yroot)){
-			std::swap(xroot,yroot);
-		}
-		parents[yroot]=xroot;
-		cur_groups--;
-		return xroot;
-	}
-	size_t num_groups() const {
-		return (size_t)cur_groups;
-	}
-};
-
-
-#if __cplusplus >= 202002L
-// C++20 (and later) code
-
-#include<atomic>
-
-template<class label_uint_t>
-class parallel_disjoint_set: private disjoint_set<label_uint_t>
-{
-public:
-	using dstype=disjoint_set<label_uint_t>;
-	parallel_disjoint_set(size_t N=0) {
-		reset(N);
-	}
-	void reset(size_t N){
-		dstype::reset(N);
-		(std::atomic_ref<size_t>(dstype::cur_groups))=N;
-	}
-	size_t num_groups() const {
-		return std::atomic_ref<size_t>(dstype::cur_groups);
-	}
-	label_uint_t Find(label_uint_t x) const {
-		label_uint_t px;
-
-		while((px=std::atomic_ref<label_uint_t>(dstype::parents[x])) != x)
-		{
-			label_uint_t ppx=std::atomic_ref<label_uint_t>(disjoint_set<label_uint_t>::parents[px]);
-			if(ppx == px) return px;
-			dstype::parents[x]=ppx; //ON PURPOSE.  This writeback isn't needed for correctness so it can be non-atomic
-			x=px;
-		}
-		return x;
-	}
-
-	label_uint_t Union(label_uint_t x,label_uint_t y) {
-		label_uint_t xroot=Find(x);
-		label_uint_t yroot=Find(y);
-
-		if(xroot==yroot) return;
-
-		if(prand_cmp(xroot,yroot)){
-			std::swap(xroot,yroot);
-		}
-		(std::atomic_ref<label_uint_t>(dstype::parents[yroot]))=xroot;
-		(std::atomic_ref<label_uint_t>(dstype::cur_groups))--;
-		return xroot;
-	}
-};
-
-#else
-
-#include<atomic>
-
-template<class label_uint_t>
-using parallel_disjoint_set=disjoint_set<label_uint_t,std::atomic<label_uint_t>>;
-
-#endif
-#endif
-
-
 	void Union(label_uint_t x,label_uint_t y) {
 		label_uint_t xroot=Find(x);
 		label_uint_t yroot=Find(y);
@@ -150,7 +72,7 @@ template<class label_uint_t>
 class parallel_disjoint_set: private disjoint_set<label_uint_t>
 {
 public:
-    using dstype=disjoint_set<label_uint_t>;
+	using dstype=disjoint_set<label_uint_t>;
 	parallel_disjoint_set(size_t N=0) {
 		reset(N);
 	}
