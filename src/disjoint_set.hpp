@@ -35,6 +35,10 @@ public:
 		std::iota(parents.begin(),parents.end(),0);
 	}
 
+	size_t size() const {
+		return parents.size();
+	}
+
 	label_uint_t find(label_uint_t x) const {
 		label_uint_t px;
 

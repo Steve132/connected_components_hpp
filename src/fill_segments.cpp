@@ -113,7 +113,7 @@ void fill_segments::build_connectivity(uint32_t id)
             {
                 if(intersect(seg1,seg2))
                 {
-                    connectivitySet.Union(seg1.id,seg2.id);
+                    connectivitySet.unite(seg1.id,seg2.id);
                 }
             }
         }
@@ -131,7 +131,7 @@ void fill_segments::build_inverse_lookup_segments()
         {
             seg.start+=r*C;
             seg.finish+=r*C;
-            uint32_t par=connectivitySet.Find(seg.id);
+            uint32_t par=connectivitySet.find(seg.id);
             seg.id=par;
             inverse_segments_buckets[par].push_back(seg);
         }

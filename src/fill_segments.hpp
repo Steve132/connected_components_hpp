@@ -56,10 +56,10 @@ public:
 		}
 	}
 	const std::vector<segment_t>& segs_matching(uint32_t id) { 
-		return inverse_segments_buckets[connectivitySet.Find(id)]; 
+		return inverse_segments_buckets[connectivitySet.find(id)]; 
 	}
 	uint32_t parent(uint32_t id){
-		return connectivitySet.Find(id);
+		return connectivitySet.find(id);
 	}
 	const std::vector<segment_t>& row_segs(size_t r) const {
 		return row_segments[r];
